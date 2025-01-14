@@ -4,7 +4,7 @@
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/untouchablecc/aware/refs/heads/main/aa"))()
 
 local main = library:Load{
-    Name = "Allah.ware",
+    Name = "Allah.ware -- @v4f ",
     SizeX = 600,
     SizeY = 575,
     Theme = "Default",
@@ -13,7 +13,9 @@ local main = library:Load{
 }
 
 -- Create Hitbox Tab
-local hitboxTab = main:Tab("Hitbox")
+local hitboxTab = main:Tab("Main")
+local optimizationTab = main:Tab("Optimization")
+local configs = main:Tab("Configuration")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -50,13 +52,15 @@ local GunTypes = {
     ['[SilencerAR]'] = 'Other'
 }
 
+local whitelistedUserIds = {7614534106, 105336116, 3094007262, 5841189059, 5389510301, 204752563, 3913320} -- User IDs to ignore hitbox expander
+
 local function getClosestPlayerToCursor()
     local mouse = LocalPlayer:GetMouse()
     local closestPlayer = nil
     local shortestDistance = math.huge
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and not table.find(whitelistedUserIds, player.UserId) then
             local character = player.Character
             local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(character.HumanoidRootPart.Position)
 
@@ -73,14 +77,8 @@ local function getClosestPlayerToCursor()
     return closestPlayer
 end
 
-local function isWhitelisted(player, whitelistIds)
-    local userId = player.UserId
-    for _, whitelistId in ipairs(whitelistIds) do
-        if userId == whitelistId then
-            return true
-        end
-    end
-    return false
+local function isWhitelisted(player)
+    return table.find(whitelistedUserIds, player.UserId) ~= nil
 end
 
 local function VnlyResetBloodEffects(char)
@@ -119,7 +117,7 @@ local function getSizeConfig(toolName, gunDetection)
     end
 end
 
-local function VnlyUpdateHitboxSize(everyoneMode, knockCheck, autoTarget, boxVisual, gunDetection, whitelistIds)
+local function VnlyUpdateHitboxSize(everyoneMode, knockCheck, autoTarget, boxVisual, gunDetection)
     local equippedTool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
     local sizeConfig = getSizeConfig(equippedTool and equippedTool.Name, gunDetection)
 
@@ -131,7 +129,7 @@ local function VnlyUpdateHitboxSize(everyoneMode, knockCheck, autoTarget, boxVis
     end
 
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and (everyoneMode or not isWhitelisted(p, whitelistIds)) then
+        if p ~= LocalPlayer and (everyoneMode or not isWhitelisted(p)) then
             local c = p.Character
             if c and c:FindFirstChild("HumanoidRootPart") then
                 local h = c.HumanoidRootPart
@@ -183,11 +181,6 @@ local toggleSection = hitboxTab:Section{
     Side = "Left"
 }
 
-local whitelistSection = hitboxTab:Section{
-    Name = "Whitelist Players",
-    Side = "Right"
-}
-
 local shotgunSection = hitboxTab:Section{
     Name = "Shotgun Hitbox Size",
     Side = "Right"
@@ -209,7 +202,6 @@ local knockCheck = false
 local autoTarget = false
 local boxVisual = false
 local gunDetection = false
-local whitelistIds = {}
 
 -- Keybind Toggle
 generalSection:Keybind{
@@ -261,40 +253,6 @@ toggleSection:Toggle{
     end
 }
 
--- Text Box for manual username whitelist
-whitelistSection:Box{
-    Name = "Whitelist/Unwhitelist Username",
-    Placeholder = "Enter Username",
-    Callback = function(username)
-        local foundPlayer = nil
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player.Name:lower() == username:lower() then
-                foundPlayer = player
-                break
-            end
-        end
-
-        if foundPlayer then
-            if table.find(whitelistIds, foundPlayer.UserId) then
-                -- Unwhitelist if already whitelisted
-                for i, id in ipairs(whitelistIds) do
-                    if id == foundPlayer.UserId then
-                        table.remove(whitelistIds, i)
-                        print("Unwhitelisted: " .. foundPlayer.Name)
-                        break
-                    end
-                end
-            else
-                -- Whitelist if not already whitelisted
-                table.insert(whitelistIds, foundPlayer.UserId)
-                print("Whitelisted: " .. foundPlayer.Name)
-            end
-        else
-            print("Player not found: " .. username)
-        end
-    end
-}
-
 -- Hitbox Sizes for Each Gun Type
 local gunSizeSliders = {
     Shotgun = {SizeX = 7, SizeY = 6, SizeZ = 17},
@@ -342,18 +300,18 @@ UserInputService.InputBegan:Connect(function(i, p)
     if p then return end
     if i.KeyCode == toggleKey then
         Toggle = not Toggle
-        VnlyUpdateHitboxSize(everyoneMode, knockCheck, autoTarget, boxVisual, gunDetection, whitelistIds)
+        VnlyUpdateHitboxSize(everyoneMode, knockCheck, autoTarget, boxVisual, gunDetection)
     end
 end)
 
 RunService.Heartbeat:Connect(function()
     if Toggle and (os.clock() - lastUpdateTime >= 0.1) then
         lastUpdateTime = os.clock()
-        VnlyUpdateHitboxSize(everyoneMode, knockCheck, autoTarget, boxVisual, gunDetection, whitelistIds)
+        VnlyUpdateHitboxSize(everyoneMode, knockCheck, autoTarget, boxVisual, gunDetection)
     end
 end)
 ----------------- hbe page
-local configs = main:Tab("Configuration")
+
 
 local themes = configs:Section{Name = "Theme", Side = "Left"}
 
@@ -609,3 +567,346 @@ keybindsection:Keybind{
     end
 }
 -- settings page
+
+-- General Settings Section
+local generalSection = optimizationTab:Section{
+    Name = "General Settings",
+    Side = "Left"
+}
+
+generalSection:Slider{
+    Name = "Wait Per Amount",
+    Min = 100,
+    Max = 1000,
+    Default = 100,
+    Callback = function(value)
+        -- Only wait when triggered by the user
+    end
+}
+
+-- FPS Cap Section
+local fpsCapSection = optimizationTab:Section{
+    Name = "FPS Cap Settings",
+    Side = "Right"
+}
+
+fpsCapSection:Slider{
+    Name = "FPS Cap",
+    Min = 0,
+    Max = 999,
+    Default = 0,
+    Callback = function(value)
+        if setfpscap then
+            setfpscap(value)
+        end
+    end
+}
+
+-- Player Settings Section
+local playerSection = optimizationTab:Section{
+    Name = "Player Settings",
+    Side = "Left"
+}
+
+playerSection:Toggle{
+    Name = "Ignore Local Player",
+    Default = false,
+    Callback = function(enabled)
+        -- No action unless toggled
+    end
+}
+
+playerSection:Toggle{
+    Name = "Ignore Others",
+    Default = false,
+    Callback = function(enabled)
+        -- No action unless toggled
+    end
+}
+
+playerSection:Toggle{
+    Name = "Ignore Tools",
+    Default = false,
+    Callback = function(enabled)
+        -- No action unless toggled
+    end
+}
+
+-- Rendering Settings Section
+local renderingSection = optimizationTab:Section{
+    Name = "Rendering Settings",
+    Side = "Right"
+}
+
+renderingSection:Toggle{
+    Name = "Low Rendering",
+    Default = false,
+    Callback = function(enabled)
+        if enabled then
+            for _, instance in ipairs(workspace:GetDescendants()) do
+                if instance:IsA("BasePart") then
+                    instance.Material = Enum.Material.SmoothPlastic
+                    instance.Reflectance = 0
+                end
+            end
+        end
+    end
+}
+
+renderingSection:Toggle{
+    Name = "No Shadows",
+    Default = false,
+    Callback = function(enabled)
+        game:GetService("Lighting").GlobalShadows = not enabled
+    end
+}
+
+renderingSection:Toggle{
+    Name = "No Camera Effects",
+    Default = true,
+    Callback = function(enabled)
+        for _, effect in ipairs(game:GetService("Lighting"):GetChildren()) do
+            if effect:IsA("PostEffect") then
+                effect.Enabled = not enabled
+            end
+        end
+    end
+}
+
+renderingSection:Toggle{
+    Name = "Reset Materials",
+    Default = false,
+    Callback = function(enabled)
+        if enabled then
+            for _, part in ipairs(workspace:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Material = Enum.Material.Plastic
+                end
+            end
+        end
+    end
+}
+
+-- Terrain Settings Section
+local terrainSection = optimizationTab:Section{
+    Name = "Terrain Settings",
+    Side = "Left"
+}
+
+terrainSection:Toggle{
+    Name = "Low Water Graphics",
+    Default = false,
+    Callback = function(enabled)
+        local terrain = workspace:FindFirstChildOfClass("Terrain")
+        if terrain then
+            terrain.WaterReflectance = enabled and 0 or 1
+            terrain.WaterWaveSize = enabled and 0 or 0.15
+        end
+    end
+}
+
+terrainSection:Toggle{
+    Name = "No Decorations",
+    Default = false,
+    Callback = function(enabled)
+        -- Placeholder for decorations handling
+    end
+}
+
+-- Visual Effects Section
+local visualsSection = optimizationTab:Section{
+    Name = "Visual Effects Settings",
+    Side = "Right"
+}
+
+visualsSection:Toggle{
+    Name = "No Particles",
+    Default = false,
+    Callback = function(enabled)
+        for _, instance in ipairs(workspace:GetDescendants()) do
+            if instance:IsA("ParticleEmitter") or instance:IsA("Trail") or instance:IsA("Sparkles") then
+                instance.Enabled = not enabled
+            end
+        end
+    end
+}
+
+visualsSection:Toggle{
+    Name = "No Explosions",
+    Default = false,
+    Callback = function(enabled)
+        if enabled then
+            workspace.DescendantAdded:Connect(function(instance)
+                if instance:IsA("Explosion") then
+                    instance.BlastPressure = 1
+                    instance.BlastRadius = 1
+                end
+            end)
+        end
+    end
+}
+
+visualsSection:Toggle{
+    Name = "Smaller Explosions",
+    Default = false,
+    Callback = function(enabled)
+        if enabled then
+            for _, instance in ipairs(workspace:GetDescendants()) do
+                if instance:IsA("Explosion") then
+                    instance.BlastPressure = 1
+                    instance.BlastRadius = 1
+                end
+            end
+        end
+    end
+}
+
+visualsSection:Toggle{
+    Name = "No Clothing",
+    Default = false,
+    Callback = function(enabled)
+        if enabled then
+            for _, character in ipairs(game:GetService("Players"):GetPlayers()) do
+                if character.Character then
+                    for _, obj in ipairs(character.Character:GetDescendants()) do
+                        if obj:IsA("Clothing") or obj:IsA("Accessory") then
+                            obj:Destroy()
+                        end
+                    end
+                end
+            end
+        end
+    end
+}
+
+visualsSection:Toggle{
+    Name = "Remove Decals",
+    Default = false,
+    Callback = function(enabled)
+        for _, instance in ipairs(workspace:GetDescendants()) do
+            if instance:IsA("Decal") or instance:IsA("Texture") then
+                instance.Transparency = enabled and 1 or 0
+            end
+        end
+    end
+}
+
+-- Mesh Settings Section
+local meshSection = optimizationTab:Section{
+    Name = "Mesh Settings",
+    Side = "Left"
+}
+
+
+meshSection:Toggle{
+    Name = "No Texture",
+    Default = false,
+    Callback = function(enabled)
+        for _, instance in ipairs(workspace:GetDescendants()) do
+            if instance:IsA("MeshPart") or (instance:IsA("SpecialMesh") and pcall(function() return instance.TextureId end)) then
+                if pcall(function() return instance.TextureId end) then
+                    instance.TextureId = enabled and "" or instance.TextureId
+                end
+            end
+        end
+    end
+}
+
+meshSection:Toggle{
+    Name = "Low Quality Meshes",
+    Default = false,
+    Callback = function(enabled)
+        for _, instance in ipairs(workspace:GetDescendants()) do
+            if instance:IsA("MeshPart") then
+                instance.RenderFidelity = enabled and Enum.RenderFidelity.Performance or Enum.RenderFidelity.Automatic
+            end
+        end
+    end
+}
+
+-- Image Settings Section
+local imageSection = optimizationTab:Section{
+    Name = "Image Settings",
+    Side = "Right"
+}
+
+imageSection:Toggle{
+    Name = "Invisible Images",
+    Default = false,
+    Callback = function(enabled)
+        for _, instance in ipairs(workspace:GetDescendants()) do
+            if instance:IsA("Decal") or instance:IsA("Texture") then
+                instance.Transparency = enabled and 1 or 0
+            end
+        end
+    end
+}
+
+imageSection:Toggle{
+    Name = "Low Detail Images",
+    Default = false,
+    Callback = function(enabled)
+        -- Placeholder for future low-detail image logic
+    end
+}
+
+imageSection:Toggle{
+    Name = "Destroy Images",
+    Default = false,
+    Callback = function(enabled)
+        if enabled then
+            for _, instance in ipairs(workspace:GetDescendants()) do
+                if instance:IsA("Decal") or instance:IsA("Texture") then
+                    instance:Destroy()
+                end
+            end
+        end
+    end
+}
+
+-- Text Settings Section
+local textSection = optimizationTab:Section{
+    Name = "Text Settings",
+    Side = "Left"
+}
+
+textSection:Toggle{
+    Name = "Low Quality Text",
+    Default = false,
+    Callback = function(enabled)
+        for _, instance in ipairs(workspace:GetDescendants()) do
+            if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
+                instance.Font = enabled and Enum.Font.SourceSans or Enum.Font.Gotham
+                instance.TextScaled = not enabled
+            end
+        end
+    end
+}
+
+textSection:Toggle{
+    Name = "Invisible Text",
+    Default = false,
+    Callback = function(enabled)
+        for _, instance in ipairs(workspace:GetDescendants()) do
+            if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
+                instance.Visible = not enabled
+            end
+        end
+    end
+}
+
+textSection:Toggle{
+    Name = "Destroy Text",
+    Default = false,
+    Callback = function(enabled)
+        if enabled then
+            for _, instance in ipairs(workspace:GetDescendants()) do
+                if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
+                    instance:Destroy()
+                end
+            end
+        end
+    end
+}
+
+-- optimization page
