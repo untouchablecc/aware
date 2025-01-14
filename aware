@@ -1,0 +1,611 @@
+-- ▸ Script Fully Coded by: Vnly
+--
+
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/untouchablecc/haaaaaaaaaaaaaaaaaaa/refs/heads/main/aa"))()
+
+local main = library:Load{
+    Name = "Allah.ware",
+    SizeX = 600,
+    SizeY = 575,
+    Theme = "Default",
+    Extension = "lua",
+    Folder = "Allah_ware"
+}
+
+-- Create Hitbox Tab
+local hitboxTab = main:Tab("Hitbox")
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local currentTarget = nil
+local VnlyOriginalSizes = {}
+local VnlyOriginalParticles = {}
+local Toggle = false
+local lastUpdateTime = 0
+
+local gunCategories = {
+    Shotgun = {SizeX = 10, SizeY = 10, SizeZ = 10},
+    Pistol = {SizeX = 10, SizeY = 10, SizeZ = 10},
+    Other = {SizeX = 10, SizeY = 10, SizeZ = 10}
+}
+
+local GunTypes = {
+    ['[Double-Barrel SG]'] = 'Shotgun',
+    ['[Revolver]'] = 'Pistol',
+    ['[TacticalShotgun]'] = 'Shotgun',
+    ['[LMG]'] = 'Other',
+    ['[Silencer]'] = 'Pistol',
+    ['[Glock]'] = 'Pistol',
+    ['[SMG]'] = 'Other',
+    ['[Shotgun]'] = 'Shotgun',
+    ['[AK47]'] = 'Other',
+    ['[AR]'] = 'Other',
+    ['[Drum-Shotgun]'] = 'Shotgun',
+    ['[DrumGun]'] = 'Other',
+    ['[AUG]'] = 'Other',
+    ['[Rifle]'] = 'Other',
+    ['[P90]'] = 'Other',
+    ['[SilencerAR]'] = 'Other'
+}
+
+local function getClosestPlayerToCursor()
+    local mouse = LocalPlayer:GetMouse()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local character = player.Character
+            local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(character.HumanoidRootPart.Position)
+
+            if onScreen then
+                local distance = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
+                if distance < shortestDistance then
+                    closestPlayer = player
+                    shortestDistance = distance
+                end
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+local function isWhitelisted(player, whitelistIds)
+    local userId = player.UserId
+    for _, whitelistId in ipairs(whitelistIds) do
+        if userId == whitelistId then
+            return true
+        end
+    end
+    return false
+end
+
+local function VnlyResetBloodEffects(char)
+    for _, d in pairs(char:GetDescendants()) do
+        if d:IsA("ParticleEmitter") or d:IsA("Beam") or d:IsA("Trail") then
+            if not VnlyOriginalParticles[d] then
+                VnlyOriginalParticles[d] = {Enabled = d.Enabled, Size = d:IsA("ParticleEmitter") and d.Size or nil}
+            end
+            d.Enabled = false
+        end
+    end
+end
+
+local function VnlyRestoreBloodEffects(char)
+    for _, d in pairs(char:GetDescendants()) do
+        local original = VnlyOriginalParticles[d]
+        if original then
+            d.Enabled = original.Enabled
+        end
+    end
+end
+
+local function isKnockedOut(player)
+    local character = player.Character
+    if not character then return true end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    return not humanoid or humanoid.Health <= 0 or humanoid:GetState() == Enum.HumanoidStateType.Dead
+end
+
+local function getSizeConfig(toolName, gunDetection)
+    if gunDetection and toolName then
+        local gunType = GunTypes[toolName] or "Other"
+        return gunCategories[gunType]
+    else
+        return {SizeX = 12, SizeY = 8, SizeZ = 25}
+    end
+end
+
+local function VnlyUpdateHitboxSize(everyoneMode, knockCheck, autoTarget, boxVisual, gunDetection, whitelistIds)
+    local equippedTool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+    local sizeConfig = getSizeConfig(equippedTool and equippedTool.Name, gunDetection)
+
+    if autoTarget then
+        local newTarget = getClosestPlayerToCursor()
+        if newTarget and newTarget ~= currentTarget then
+            currentTarget = newTarget
+        end
+    end
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and (everyoneMode or not isWhitelisted(p, whitelistIds)) then
+            local c = p.Character
+            if c and c:FindFirstChild("HumanoidRootPart") then
+                local h = c.HumanoidRootPart
+
+                if Toggle then
+                    if knockCheck and isKnockedOut(p) then
+                        h.Size = Vector3.new(2, 2, 1)
+                        h.Transparency = 1
+                        h.Material = Enum.Material.Plastic
+                        VnlyRestoreBloodEffects(c)
+                    else
+                        if autoTarget and p ~= currentTarget then
+                            h.Size = Vector3.new(2, 2, 1)
+                            h.Transparency = 1
+                            h.Material = Enum.Material.Plastic
+                        else
+                            if not VnlyOriginalSizes[p] then
+                                VnlyOriginalSizes[p] = h.Size
+                            end
+                            VnlyResetBloodEffects(c)
+                            h.Size = Vector3.new(sizeConfig.SizeX, sizeConfig.SizeY, sizeConfig.SizeZ)
+                            h.Transparency = boxVisual and 0.5 or 1
+                            h.Material = Enum.Material.ForceField
+                            h.CanCollide = false
+                        end
+                    end
+                else
+                    if VnlyOriginalSizes[p] then
+                        h.Size = VnlyOriginalSizes[p]
+                        VnlyOriginalSizes[p] = nil
+                    end
+                    h.Transparency = 1
+                    h.Material = Enum.Material.Plastic
+                    VnlyRestoreBloodEffects(c)
+                end
+            end
+        end
+    end
+end
+
+-- UI Control
+local generalSection = hitboxTab:Section{
+    Name = "HBE",
+    Side = "Left"
+}
+
+local toggleSection = hitboxTab:Section{
+    Name = "Toggles",
+    Side = "Left"
+}
+
+local whitelistSection = hitboxTab:Section{
+    Name = "Whitelist Players",
+    Side = "Right"
+}
+
+local shotgunSection = hitboxTab:Section{
+    Name = "Shotgun Hitbox Size",
+    Side = "Right"
+}
+
+local pistolSection = hitboxTab:Section{
+    Name = "Pistol Hitbox Size",
+    Side = "Right"
+}
+
+local otherSection = hitboxTab:Section{
+    Name = "Other Guns Hitbox Size",
+    Side = "Right"
+}
+
+local toggleKey = Enum.KeyCode.X
+local everyoneMode = false
+local knockCheck = false
+local autoTarget = false
+local boxVisual = false
+local gunDetection = false
+local whitelistIds = {}
+
+-- Keybind Toggle
+generalSection:Keybind{
+    Name = "Toggle Keybind",
+    Default = toggleKey,
+    Callback = function(key)
+        toggleKey = key
+    end
+}
+
+-- Toggles
+toggleSection:Toggle{
+    Name = "Everyone Mode",
+    Default = everyoneMode,
+    Callback = function(enabled)
+        everyoneMode = enabled
+    end
+}
+
+toggleSection:Toggle{
+    Name = "Show Hitbox Box",
+    Default = boxVisual,
+    Callback = function(enabled)
+        boxVisual = enabled
+    end
+}
+
+toggleSection:Toggle{
+    Name = "Auto Target Closest Player",
+    Default = autoTarget,
+    Callback = function(enabled)
+        autoTarget = enabled
+    end
+}
+
+toggleSection:Toggle{
+    Name = "Disable on Knocked Players",
+    Default = knockCheck,
+    Callback = function(enabled)
+        knockCheck = enabled
+    end
+}
+
+toggleSection:Toggle{
+    Name = "Enable Gun Detection",
+    Default = gunDetection,
+    Callback = function(enabled)
+        gunDetection = enabled
+    end
+}
+
+-- Text Box for manual username whitelist
+whitelistSection:Box{
+    Name = "Whitelist/Unwhitelist Username",
+    Placeholder = "Enter Username",
+    Callback = function(username)
+        local foundPlayer = nil
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Name:lower() == username:lower() then
+                foundPlayer = player
+                break
+            end
+        end
+
+        if foundPlayer then
+            if table.find(whitelistIds, foundPlayer.UserId) then
+                -- Unwhitelist if already whitelisted
+                for i, id in ipairs(whitelistIds) do
+                    if id == foundPlayer.UserId then
+                        table.remove(whitelistIds, i)
+                        print("Unwhitelisted: " .. foundPlayer.Name)
+                        break
+                    end
+                end
+            else
+                -- Whitelist if not already whitelisted
+                table.insert(whitelistIds, foundPlayer.UserId)
+                print("Whitelisted: " .. foundPlayer.Name)
+            end
+        else
+            print("Player not found: " .. username)
+        end
+    end
+}
+
+-- Hitbox Sizes for Each Gun Type
+local gunSizeSliders = {
+    Shotgun = {SizeX = 7, SizeY = 6, SizeZ = 17},
+    Pistol = {SizeX = 7, SizeY = 15, SizeZ = 5},
+    Other = {SizeX = 10, SizeY = 10, SizeZ = 10}
+}
+
+for axis, default in pairs(gunSizeSliders.Shotgun) do
+    shotgunSection:Slider{
+        Name = "Shotgun " .. axis,
+        Min = 1,
+        Max = 50,
+        Default = default,
+        Callback = function(value)
+            gunCategories.Shotgun[axis] = value
+        end
+    }
+end
+
+for axis, default in pairs(gunSizeSliders.Pistol) do
+    pistolSection:Slider{
+        Name = "Pistol " .. axis,
+        Min = 1,
+        Max = 50,
+        Default = default,
+        Callback = function(value)
+            gunCategories.Pistol[axis] = value
+        end
+    }
+end
+
+for axis, default in pairs(gunSizeSliders.Other) do
+    otherSection:Slider{
+        Name = "Other " .. axis,
+        Min = 1,
+        Max = 50,
+        Default = default,
+        Callback = function(value)
+            gunCategories.Other[axis] = value
+        end
+    }
+end
+
+UserInputService.InputBegan:Connect(function(i, p)
+    if p then return end
+    if i.KeyCode == toggleKey then
+        Toggle = not Toggle
+        VnlyUpdateHitboxSize(everyoneMode, knockCheck, autoTarget, boxVisual, gunDetection, whitelistIds)
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if Toggle and (os.clock() - lastUpdateTime >= 0.1) then
+        lastUpdateTime = os.clock()
+        VnlyUpdateHitboxSize(everyoneMode, knockCheck, autoTarget, boxVisual, gunDetection, whitelistIds)
+    end
+end)
+----------------- hbe page
+local configs = main:Tab("Configuration")
+
+local themes = configs:Section{Name = "Theme", Side = "Left"}
+
+local themepickers = {}
+
+local themelist = themes:Dropdown{
+    Name = "Theme",
+    Default = library.currenttheme,
+    Content = library:GetThemes(),
+    Flag = "Theme Dropdown",
+    Callback = function(option)
+        if option then
+            library:SetTheme(option)
+
+            for option, picker in next, themepickers do
+                picker:Set(library.theme[option])
+            end
+        end
+    end
+}
+
+library:ConfigIgnore("Theme Dropdown")
+
+local namebox = themes:Box{
+    Name = "Custom Theme Name",
+    Placeholder = "Custom Theme",
+    Flag = "Custom Theme"
+}
+
+library:ConfigIgnore("Custom Theme")
+
+themes:Button{
+    Name = "Save Custom Theme",
+    Callback = function()
+        if library:SaveCustomTheme(library.flags["Custom Theme"]) then
+            themelist:Refresh(library:GetThemes())
+            themelist:Set(library.flags["Custom Theme"])
+            namebox:Set("")
+        end
+    end
+}
+
+local customtheme = configs:Section{Name = "Custom Theme", Side = "Right"}
+
+themepickers["Accent"] = customtheme:ColorPicker{
+    Name = "Accent",
+    Default = library.theme["Accent"],
+    Flag = "Accent",
+    Callback = function(color)
+        library:ChangeThemeOption("Accent", color)
+    end
+}
+
+library:ConfigIgnore("Accent")
+
+themepickers["Window Background"] = customtheme:ColorPicker{
+    Name = "Window Background",
+    Default = library.theme["Window Background"],
+    Flag = "Window Background",
+    Callback = function(color)
+        library:ChangeThemeOption("Window Background", color)
+    end
+}
+
+library:ConfigIgnore("Window Background")
+
+themepickers["Window Border"] = customtheme:ColorPicker{
+    Name = "Window Border",
+    Default = library.theme["Window Border"],
+    Flag = "Window Border",
+    Callback = function(color)
+        library:ChangeThemeOption("Window Border", color)
+    end
+}
+
+library:ConfigIgnore("Window Border")
+
+themepickers["Tab Background"] = customtheme:ColorPicker{
+    Name = "Tab Background",
+    Default = library.theme["Tab Background"],
+    Flag = "Tab Background",
+    Callback = function(color)
+        library:ChangeThemeOption("Tab Background", color)
+    end
+}
+
+library:ConfigIgnore("Tab Background")
+
+themepickers["Tab Border"] = customtheme:ColorPicker{
+    Name = "Tab Border",
+    Default = library.theme["Tab Border"],
+    Flag = "Tab Border",
+    Callback = function(color)
+        library:ChangeThemeOption("Tab Border", color)
+    end
+}
+
+library:ConfigIgnore("Tab Border")
+
+themepickers["Tab Toggle Background"] = customtheme:ColorPicker{
+    Name = "Tab Toggle Background",
+    Default = library.theme["Tab Toggle Background"],
+    Flag = "Tab Toggle Background",
+    Callback = function(color)
+        library:ChangeThemeOption("Tab Toggle Background", color)
+    end
+}
+
+library:ConfigIgnore("Tab Toggle Background")
+
+themepickers["Section Background"] = customtheme:ColorPicker{
+    Name = "Section Background",
+    Default = library.theme["Section Background"],
+    Flag = "Section Background",
+    Callback = function(color)
+        library:ChangeThemeOption("Section Background", color)
+    end
+}
+
+library:ConfigIgnore("Section Background")
+
+themepickers["Section Border"] = customtheme:ColorPicker{
+    Name = "Section Border",
+    Default = library.theme["Section Border"],
+    Flag = "Section Border",
+    Callback = function(color)
+        library:ChangeThemeOption("Section Border", color)
+    end
+}
+
+library:ConfigIgnore("Section Border")
+
+themepickers["Text"] = customtheme:ColorPicker{
+    Name = "Text",
+    Default = library.theme["Text"],
+    Flag = "Text",
+    Callback = function(color)
+        library:ChangeThemeOption("Text", color)
+    end
+}
+
+library:ConfigIgnore("Text")
+
+themepickers["Disabled Text"] = customtheme:ColorPicker{
+    Name = "Disabled Text",
+    Default = library.theme["Disabled Text"],
+    Flag = "Disabled Text",
+    Callback = function(color)
+        library:ChangeThemeOption("Disabled Text", color)
+    end
+}
+
+library:ConfigIgnore("Disabled Text")
+
+themepickers["Object Background"] = customtheme:ColorPicker{
+    Name = "Object Background",
+    Default = library.theme["Object Background"],
+    Flag = "Object Background",
+    Callback = function(color)
+        library:ChangeThemeOption("Object Background", color)
+    end
+}
+
+library:ConfigIgnore("Object Background")
+
+themepickers["Object Border"] = customtheme:ColorPicker{
+    Name = "Object Border",
+    Default = library.theme["Object Border"],
+    Flag = "Object Border",
+    Callback = function(color)
+        library:ChangeThemeOption("Object Border", color)
+    end
+}
+
+library:ConfigIgnore("Object Border")
+
+themepickers["Dropdown Option Background"] = customtheme:ColorPicker{
+    Name = "Dropdown Option Background",
+    Default = library.theme["Dropdown Option Background"],
+    Flag = "Dropdown Option Background",
+    Callback = function(color)
+        library:ChangeThemeOption("Dropdown Option Background", color)
+    end
+}
+
+library:ConfigIgnore("Dropdown Option Background")
+
+local configsection = configs:Section{Name = "Configs", Side = "Left"}
+
+local configlist = configsection:Dropdown{
+    Name = "Configs",
+    Content = library:GetConfigs(), -- GetConfigs(true) if you want universal configs
+    Flag = "Config Dropdown"
+}
+
+library:ConfigIgnore("Config Dropdown")
+
+local loadconfig = configsection:Button{
+    Name = "Load Config",
+    Callback = function()
+        library:LoadConfig(library.flags["Config Dropdown"]) -- LoadConfig(library.flags["Config Dropdown"], true)  if you want universal configs
+    end
+}
+
+local delconfig = configsection:Button{
+    Name = "Delete Config",
+    Callback = function()
+        library:DeleteConfig(library.flags["Config Dropdown"]) -- DeleteConfig(library.flags["Config Dropdown"], true)  if you want universal configs
+        configlist:Refresh(library:GetConfigs())
+    end
+}
+
+
+local configbox = configsection:Box{
+    Name = "Config Name",
+    Placeholder = "Config Name",
+    Flag = "Config Name"
+}
+
+library:ConfigIgnore("Config Name")
+
+local save = configsection:Button{
+    Name = "Save Config",
+    Callback = function()
+        library:SaveConfig(library.flags["Config Dropdown"] or library.flags["Config Name"]) -- SaveConfig(library.flags["Config Name"], true) if you want universal configs
+        configlist:Refresh(library:GetConfigs())
+    end
+}
+
+local keybindsection = configs:Section{Name = "UI Toggle Keybind", Side = "Left"}
+
+keybindsection:Keybind{
+    Name = "UI Toggle",
+    Flag = "UI Toggle",
+    Default = Enum.KeyCode.Insert,
+    Blacklist = {Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3},
+    Callback = function(_, fromsetting)
+        if not fromsetting then
+            library:Close()
+        end
+    end
+}
+
+keybindsection:Keybind{
+    Name = "Destroy UI",
+    Flag = "Unload UI",
+    Default = Enum.KeyCode.Delete,
+    Blacklist = {Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3},
+    Callback = function(_, fromsetting)
+        if not fromsetting then
+            library:Unload()
+        end
+    end
+}
+-- settings page
