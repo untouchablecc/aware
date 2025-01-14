@@ -12,10 +12,251 @@ local main = library:Load{
     Folder = "Allah_ware"
 }
 
--- Create Hitbox Tab
+
 local hitboxTab = main:Tab("Main")
+local miscTab = main:Tab("Miscellaneous")
 local optimizationTab = main:Tab("Optimization")
 local configs = main:Tab("Configuration")
+
+
+
+-- Services
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local gunRangeValues = {
+    ["[Double-Barrel SG]"] = 1, 
+    ["[Revolver]"] = 1,
+    ["[TacticalShotgun]"] = 1
+}
+
+local gunDamageMultipliers = {
+    ["[Double-Barrel SG]"] = 1.0, -- Default multiplier (1x)
+    ["[Revolver]"] = 1.0,
+    ["[TacticalShotgun]"] = 1.0
+}
+
+local gunCooldownValues = {
+    ["[Double-Barrel SG]"] = 1.0, -- Default cooldown
+    ["[Revolver]"] = 1.0,
+    ["[TacticalShotgun]"] = 1.0
+}
+
+getgenv().GunRangeEnabled = false
+getgenv().GunDamageEnabled = false
+getgenv().GunCooldownEnabled = false
+
+-- Gun Range Section
+local rangeSection = miscTab:Section{
+    Name = "Gun Range Settings",
+    Side = "Left"
+}
+
+rangeSection:Toggle{
+    Name = "Gun Range Enabled",
+    Default = false,
+    Callback = function(enabled)
+        getgenv().GunRangeEnabled = enabled
+        if not enabled then
+        end
+    end
+}
+
+rangeSection:Slider{
+    Name = "Double-Barrel Range",
+    Min = 1,
+    Max = 1000,
+    Default = gunRangeValues["[Double-Barrel SG]"],
+    Callback = function(value)
+        gunRangeValues["[Double-Barrel SG]"] = value
+    end
+}
+
+rangeSection:Slider{
+    Name = "Revolver Range",
+    Min = 1,
+    Max = 1000,
+    Default = gunRangeValues["[Revolver]"],
+    Callback = function(value)
+        gunRangeValues["[Revolver]"] = value
+    end
+}
+
+rangeSection:Slider{
+    Name = "Tactical Shotgun Range",
+    Min = 1,
+    Max = 1000,
+    Default = gunRangeValues["[TacticalShotgun]"],
+    Callback = function(value)
+        gunRangeValues["[TacticalShotgun]"] = value
+    end
+}
+
+-- Gun Damage Section
+local damageSection = miscTab:Section{
+    Name = "Gun Damage Settings",
+    Side = "Right"
+}
+
+damageSection:Toggle{
+    Name = "Gun Damage Enabled",
+    Default = false,
+    Callback = function(enabled)
+        getgenv().GunDamageEnabled = enabled
+        if not enabled then
+        end
+    end
+}
+
+damageSection:Slider{
+    Name = "Double-Barrel Damage Multiplier",
+    Min = 0.1,
+    Max = 50,
+    Default = gunDamageMultipliers["[Double-Barrel SG]"],
+    Callback = function(value)
+        gunDamageMultipliers["[Double-Barrel SG]"] = value
+    end
+}
+
+damageSection:Slider{
+    Name = "Revolver Damage Multiplier",
+    Min = 0.1,
+    Max = 50,
+    Default = gunDamageMultipliers["[Revolver]"],
+    Callback = function(value)
+        gunDamageMultipliers["[Revolver]"] = value
+    end
+}
+
+damageSection:Slider{
+    Name = "Tactical Shotgun Damage Multiplier",
+    Min = 0.1,
+    Max = 50,
+    Default = gunDamageMultipliers["[TacticalShotgun]"],
+    Callback = function(value)
+        gunDamageMultipliers["[TacticalShotgun]"] = value
+    end
+}
+
+-- Gun Shooting Cooldown Section
+local cooldownSection = miscTab:Section{
+    Name = "Shooting Cooldown Settings",
+    Side = "Left"
+}
+
+cooldownSection:Toggle{
+    Name = "Shooting Cooldown Enabled",
+    Default = false,
+    Callback = function(enabled)
+        getgenv().GunCooldownEnabled = enabled
+        if not enabled then
+        end
+    end
+}
+
+cooldownSection:Slider{
+    Name = "Double-Barrel Cooldown",
+    Min = 0,
+    Max = 5.0,
+    Default = gunCooldownValues["[Double-Barrel SG]"],
+    Callback = function(value)
+        gunCooldownValues["[Double-Barrel SG]"] = value
+    end
+}
+
+cooldownSection:Slider{
+    Name = "Revolver Cooldown",
+    Min = 0,
+    Max = 5.0,
+    Default = gunCooldownValues["[Revolver]"],
+    Callback = function(value)
+        gunCooldownValues["[Revolver]"] = value
+    end
+}
+
+cooldownSection:Slider{
+    Name = "Tactical Shotgun Cooldown",
+    Min = 0,
+    Max = 5.0,
+    Default = gunCooldownValues["[TacticalShotgun]"],
+    Callback = function(value)
+        gunCooldownValues["[TacticalShotgun]"] = value
+    end
+}
+
+-- Function to Continuously Apply Custom Gun Properties When Enabled
+local function applyGunProperties()
+    while true do
+        task.wait(0.1) -- Interval to apply settings
+        if getgenv().GunRangeEnabled or getgenv().GunDamageEnabled or getgenv().GunCooldownEnabled then
+            pcall(function()
+                for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+                    if tool:IsA("Tool") and (gunRangeValues[tool.Name] or gunDamageMultipliers[tool.Name] or gunCooldownValues[tool.Name]) then
+                        for _, obj in ipairs(tool:GetChildren()) do
+                            if obj:IsA("NumberValue") then
+                                if obj.Name:lower():find("range") and getgenv().GunRangeEnabled then
+                                    obj.Value = gunRangeValues[tool.Name] -- Set range to the custom value
+                                elseif obj.Name:lower():find("damage") and getgenv().GunDamageEnabled then
+                                    obj.Value = obj.Value * gunDamageMultipliers[tool.Name] -- Apply damage multiplier
+                                elseif obj.Name:lower():find("cooldown") and getgenv().GunCooldownEnabled then
+                                    if gunCooldownValues[tool.Name] == 0 then
+                                        obj:Destroy() -- Remove cooldown by deleting the value
+                                    else
+                                        obj.Value = gunCooldownValues[tool.Name] -- Set custom cooldown
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+
+                local character = LocalPlayer.Character
+                if character then
+                    for _, tool in ipairs(character:GetChildren()) do
+                        if tool:IsA("Tool") and (gunRangeValues[tool.Name] or gunDamageMultipliers[tool.Name] or gunCooldownValues[tool.Name]) then
+                            for _, obj in ipairs(tool:GetChildren()) do
+                                if obj:IsA("NumberValue") then
+                                    if obj.Name:lower():find("range") and getgenv().GunRangeEnabled then
+                                        obj.Value = gunRangeValues[tool.Name] -- Set range to the custom value
+                                    elseif obj.Name:lower():find("damage") and getgenv().GunDamageEnabled then
+                                        obj.Value = obj.Value * gunDamageMultipliers[tool.Name] -- Apply damage multiplier
+                                    elseif obj.Name:lower():find("cooldown") and getgenv().GunCooldownEnabled then
+                                        if gunCooldownValues[tool.Name] == 0 then
+                                            obj:Destroy() -- Remove cooldown by deleting the value
+                                        else
+                                            obj.Value = gunCooldownValues[tool.Name] -- Set custom cooldown
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        else
+            -- Ensure default game settings remain untouched if all options are disabled
+            task.wait(1)
+        end
+    end
+end
+
+-- Start applying gun properties in the background only when enabled
+coroutine.wrap(applyGunProperties)()
+
+
+
+
+
+
+
+
+
+
+
+
+
+--misc
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
