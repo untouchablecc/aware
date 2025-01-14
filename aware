@@ -1,7 +1,7 @@
 -- ▸ Script Fully Coded by: Vnly
 --
 
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/untouchablecc/haaaaaaaaaaaaaaaaaaa/refs/heads/main/aa"))()
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/untouchablecc/aware/refs/heads/main/aa"))()
 
 local main = library:Load{
     Name = "Allah.ware",
